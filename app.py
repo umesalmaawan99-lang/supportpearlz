@@ -9,6 +9,13 @@ if not os.path.exists("data/vector_store"):
 from src.config import settings
 from src.rag.chain import get_rag_chain
 
+# Page Configuration
+st.set_page_config(
+    page_title="SupportPearlz AI Assistant",
+    page_icon="💎",
+    layout="centered"
+)
+
 import streamlit as st
 import os
 from src.config import settings
