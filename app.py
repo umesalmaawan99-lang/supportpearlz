@@ -1,99 +1,118 @@
 import streamlit as st
 import os
-
-# Ensure vector store exists on Streamlit Cloud startup
-if not os.path.exists("data/vector_store"):
-    from src.ingestion.build_index import main as build_index
-    build_index()
-
 from src.config import settings
 from src.rag.chain import get_rag_chain
 
-# Page Configuration
+# -----------------------------------------------------------------------------
+# 1. Page Configuration
+# -----------------------------------------------------------------------------
 st.set_page_config(
     page_title="SupportPearlz AI Assistant",
     page_icon="💎",
-    layout="centered"
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
-import streamlit as st
-import os
-from src.config import settings
-from src.rag.chain import get_rag_chain
-
-# Page Configuration
-st.set_page_config(
-    page_title="SupportPearlz AI Assistant",
-    page_icon="💎",
-    layout="centered"
-)
-
-# Custom Styling
+# -----------------------------------------------------------------------------
+# 2. Custom CSS Styling
+# -----------------------------------------------------------------------------
 st.markdown("""
     <style>
-    .main-title { font-size: 2.2rem; color: #2C3E50; font-weight: 700; margin-bottom: 0px; }
-    .subtitle { font-size: 1.1rem; color: #7F8C8D; margin-bottom: 30px; }
+    .stApp {
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+    .chat-header {
+        font-size: 1.8rem;
+        font-weight: 700;
+        color: #1E293B;
+        margin-bottom: 0.2rem;
+    }
+    .chat-subtitle {
+        font-size: 1.0rem;
+        color: #64748B;
+        margin-bottom: 1.5rem;
+    }
     </style>
 """, unsafe_allow_html=True)
 
-# Header Section
-st.markdown('<p class="main-title">💎 SupportPearlz Customer Support</p>', unsafe_allow_html=True)
-st.markdown('<p class="subtitle">Your 24/7 AI assistant for policies, pricing, and product guidance.</p>', unsafe_allow_html=True)
+# -----------------------------------------------------------------------------
+# 3. Sidebar Setup
+# -----------------------------------------------------------------------------
+with st.sidebar:
+    st.title("About SupportPearlz")
+    st.write(
+        "This AI assistant uses advanced RAG (Retrieval-Augmented Generation) "
+        "backed by OpenAI and LangChain to answer customer support queries accurately."
+    )
+    st.divider()
+    
+    st.subheader("Support Channels:")
+    st.markdown("• **Email:** support@supportpearlz.com")
+    st.markdown("• **Phone:** 1-800-555-PEARL")
+    st.divider()
 
-# Initialize RAG Chain with caching
-@st.cache_resource
-def load_chain():
-    return get_rag_chain()
+    if st.button("Clear Chat History", use_container_width=True):
+        st.session_state.messages = []
+        st.rerun()
 
-try:
-    with st.spinner("Initializing SupportPearlz AI Knowledge Base..."):
-        rag_chain = load_chain()
-    st.success("Connected to SupportPearlz Knowledge Base successfully!", icon="✅")
-except Exception as e:
-    st.error(f"Failed to initialize RAG chain: {e}")
-    st.stop()
+# -----------------------------------------------------------------------------
+# 4. Initialize RAG Chain & Session State
+# -----------------------------------------------------------------------------
+@st.cache_resource(show_spinner=False)
+def initialize_chain():
+    try:
+        return get_rag_chain()
+    except Exception as e:
+        st.error(f"Failed to initialize RAG chain: {e}")
+        return None
 
-# Initialize Chat History in Session State
+rag_chain = initialize_chain()
+
 if "messages" not in st.session_state:
     st.session_state.messages = [
-        {"role": "assistant", "content": "Hello! Welcome to SupportPearlz. How can I help you with our products, shipping, or policies today?"}
+        {
+            "role": "assistant", 
+            "content": "Hello! Welcome to SupportPearlz. How can I help you with our products, shipping, or policies today?"
+        }
     ]
 
-# Display Chat History
-for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
+# -----------------------------------------------------------------------------
+# 5. Main UI & Chat Logic
+# -----------------------------------------------------------------------------
+st.markdown("<div class='chat-header'>💎 SupportPearlz Customer Support</div>", unsafe_allow_html=True)
+st.markdown("<div class='chat-subtitle'>Your 24/7 AI assistant for policies, pricing, and product guidance.</div>", unsafe_allow_html=True)
 
-# User Input Handling
-if user_query := st.chat_input("Ask a question about SupportPearlz..."):
-    # Append user message
-    st.session_state.messages.append({"role": "user", "content": user_query})
+if rag_chain is not None:
+    st.success("Connected to SupportPearlz Knowledge Base successfully!", icon="✅")
+else:
+    st.warning("Knowledge base disconnected. Please verify that vector store index files are present.", icon="⚠️")
+
+# Display previous chat messages
+for msg in st.session_state.messages:
+    with st.chat_message(msg["role"]):
+        st.markdown(msg["content"])
+
+# User Input Box
+if user_prompt := st.chat_input("Ask a question about SupportPearlz..."):
+    # Append user prompt to state & screen
+    st.session_state.messages.append({"role": "user", "content": user_prompt})
     with st.chat_message("user"):
-        st.markdown(user_query)
+        st.markdown(user_prompt)
 
-    # Generate Assistant Response
-    with st.chat_message("assistant"):
-        with st.spinner("Searching knowledge base & generating response..."):
-            try:
-                response = rag_chain.invoke(user_query)
-                st.markdown(response)
-                st.session_state.messages.append({"role": "assistant", "content": response})
-            except Exception as e:
-                error_msg = f"An error occurred while processing your request: {e}"
-                st.error(error_msg)
-                st.session_state.messages.append({"role": "assistant", "content": error_msg})
-
-# Sidebar Info
-with st.sidebar:
-    st.markdown("### About SupportPearlz")
-    st.write("This AI assistant uses advanced RAG (Retrieval-Augmented Generation) backed by OpenAI and LangChain to answer customer support queries accurately.")
-    st.markdown("---")
-    st.write("**Support Channels:**")
-    st.write("- Email: support@supportpearlz.com")
-    st.write("- Phone: 1-800-555-PEARL")
-    
-    if st.button("Clear Chat History"):
-        st.session_state.messages = [
-            {"role": "assistant", "content": "Chat history cleared. How can I help you today?"}
-        ]
-        st.rerun()
+    # Generate assistant response
+    if rag_chain:
+        with st.chat_message("assistant"):
+            with st.spinner("Searching knowledge base..."):
+                try:
+                    # Invoke RAG chain
+                    response = rag_chain.invoke(user_prompt)
+                    st.markdown(response)
+                    st.session_state.messages.append({"role": "assistant", "content": response})
+                except Exception as e:
+                    error_msg = f"An error occurred while generating a response: {e}"
+                    st.error(error_msg)
+                    st.session_state.messages.append({"role": "assistant", "content": error_msg})
+    else:
+        with st.chat_message("assistant"):
+            st.error("RAG chain is unavailable. Please check backend configuration.")
