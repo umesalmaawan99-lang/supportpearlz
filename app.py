@@ -1,5 +1,16 @@
 import streamlit as st
 import os
+
+# Ensure vector store exists on Streamlit Cloud startup
+if not os.path.exists("data/vector_store"):
+    from src.ingestion.build_index import main as build_index
+    build_index()
+
+from src.config import settings
+from src.rag.chain import get_rag_chain
+
+import streamlit as st
+import os
 from src.config import settings
 from src.rag.chain import get_rag_chain
 
