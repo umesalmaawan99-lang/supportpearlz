@@ -6,6 +6,5 @@ venv/
 __pycache__/
 *.pyc
 
-# Vector store database
-data/vector_store/
+# Logs
 data/app.log
