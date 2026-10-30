@@ -1,0 +1,11 @@
+# Environment variables
+.env
+
+# Python virtual environment
+venv/
+__pycache__/
+*.pyc
+
+# Vector store database
+data/vector_store/
+data/app.log
